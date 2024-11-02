@@ -1,4 +1,4 @@
-const ora = require("ora");
+const { chromium } = require("playwright");
 const chalk = require("chalk");
 const { writeFileSync } = require("fs");
 const { spawn, execSync } = require("child_process");
@@ -94,24 +94,22 @@ function crawlWebsite(config, callback) {
           });
       }
       
-      chromium.launch({
-        headless: false,
-        slowMo: 50
+      // Changed to run in headless mode
+      chromium.launch({ 
+        headless: true  // Run in headless mode
       })
         .then(function(browser) {
           return browser.newContext()
             .then(function(context) {
               return context.newPage()
                 .then(function(page) {
-                  return page.setViewportSize({ width: 1280, height: 800 })
-                    .then(() => ({ browser, context, page }));
+                  return { browser, context, page };
                 });
             });
         })
         .then(function({ browser, context, page }) {
           crawlPage(browser, context, page, '${config.url}', function() {
-            delay(1000)
-              .then(() => browser.close())
+            browser.close()
               .then(() => {
                 process.send({ 
                   type: 'complete', 
