@@ -4,19 +4,14 @@ const { writeFileSync } = require("fs");
 const { spawn, execSync } = require("child_process");
 const path = require("path");
 
-function getRandomDelay() {
-  // Returns random number between 500 and 1500 (milliseconds)
-  return Math.floor(Math.random() * (1500 - 500 + 1) + 500);
-}
-
 function installBrowser(callback) {
-  const spinner = ora("Installing Playwright browser...").start();
+  console.log(chalk.blue("Installing Playwright browser..."));
   try {
     execSync("npx playwright install chromium", { stdio: "inherit" });
-    spinner.succeed("Browser installed successfully");
+    console.log(chalk.green("Browser installed successfully"));
     callback(null, true);
   } catch (error) {
-    spinner.fail("Failed to install browser automatically");
+    console.error(chalk.red("Failed to install browser automatically"));
     console.error(chalk.red("\nPlease run this command manually:"));
     console.error(chalk.blue("\n    npx playwright install chromium\n"));
     callback(null, false);
@@ -24,7 +19,7 @@ function installBrowser(callback) {
 }
 
 function crawlWebsite(config, callback) {
-  const spinner = ora("Starting crawler...").start();
+  console.log(chalk.blue("\nStarting crawler...\n"));
 
   const tempScript = `
     const { chromium } = require('playwright');
@@ -47,14 +42,13 @@ function crawlWebsite(config, callback) {
           return callback();
         }
 
-        // Random delay before visiting next page
+        process.send({ type: 'pageStart', url });
+
         delay(getRandomDelay())
           .then(() => page.goto(url))
           .then(() => {
             visitedUrls.add(url);
             pagesVisited++;
-            
-            process.send({ type: 'progress', url });
             
             return page.$$eval('${config.selector}', 
               (elements) => elements.map((el) => el.innerText)
@@ -66,6 +60,8 @@ function crawlWebsite(config, callback) {
               content: content.join("\\n"),
               timestamp: new Date().toISOString(),
             });
+
+            process.send({ type: 'pageSaved', url });
             
             return page.$$eval(
               "a[href]",
@@ -93,22 +89,20 @@ function crawlWebsite(config, callback) {
             processNextLink();
           })
           .catch((error) => {
-            process.send({ type: 'warning', url, message: error.message });
+            process.send({ type: 'pageError', url, message: error.message });
             callback();
           });
       }
       
-      // Launch browser with headless: false to make it visible
       chromium.launch({
         headless: false,
-        slowMo: 50 // Add slight slowdown for visibility
+        slowMo: 50
       })
         .then(function(browser) {
           return browser.newContext()
             .then(function(context) {
               return context.newPage()
                 .then(function(page) {
-                  // Set viewport size for better visibility
                   return page.setViewportSize({ width: 1280, height: 800 })
                     .then(() => ({ browser, context, page }));
                 });
@@ -116,7 +110,6 @@ function crawlWebsite(config, callback) {
         })
         .then(function({ browser, context, page }) {
           crawlPage(browser, context, page, '${config.url}', function() {
-            // Add small delay before closing to see the last page
             delay(1000)
               .then(() => browser.close())
               .then(() => {
@@ -156,10 +149,10 @@ function crawlWebsite(config, callback) {
         case "needsInstall":
           if (retries < maxRetries) {
             retries++;
-            spinner.info("Browser not found, attempting to install...");
+            console.log(chalk.yellow("\nBrowser not found, attempting to install..."));
             installBrowser(function (err, installed) {
               if (installed) {
-                spinner.info("Retrying crawler...");
+                console.log(chalk.blue("\nRetrying crawler..."));
                 runCrawler(cb);
               } else {
                 cb(new Error("Browser installation required"));
@@ -170,18 +163,22 @@ function crawlWebsite(config, callback) {
           }
           break;
 
-        case "progress":
-          const delay = getRandomDelay();
-          spinner.text = `Crawling ${message.url} (waiting ${delay}ms before next page)`;
+        case "pageStart":
+          console.log(chalk.blue(`→ Starting: ${message.url}`));
           break;
 
-        case "warning":
-          spinner.warn(chalk.yellow(`Warning: Error crawling ${message.url}: ${message.message}`));
+        case "pageSaved":
+          console.log(chalk.green(`✓ Saved: ${message.url}`));
+          break;
+
+        case "pageError":
+          console.log(chalk.red(`✗ Error: ${message.url} - ${message.message}`));
           break;
 
         case "complete":
           writeFileSync(config.outputFile, JSON.stringify(message.results, null, 2));
-          spinner.succeed(chalk.green(`Crawling complete! Processed ${message.pagesVisited} pages`));
+          console.log(chalk.green(`\n✓ Crawling complete! Processed ${message.pagesVisited} pages`));
+          console.log(chalk.blue(`✓ Results saved to ${config.outputFile}\n`));
           cb();
           break;
 
@@ -210,7 +207,7 @@ function crawlWebsite(config, callback) {
     }
 
     if (error) {
-      spinner.fail(chalk.red("Crawling failed:", error.message));
+      console.error(chalk.red("\nCrawling failed:", error.message, "\n"));
       return process.exit(1);
     }
   });
