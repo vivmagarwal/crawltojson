@@ -2,6 +2,14 @@
 
 A powerful and flexible web crawler that converts website content into structured JSON. Perfect for creating training datasets, content migration, web scraping, or any task requiring structured web content extraction.
 
+## 🎯 Intended Use 
+Just two commands to crawl a website and save the content in a structured JSON file.
+
+```
+npx crawltojson config
+npx crawltojson crawl
+```
+
 ## 🚀 Features
 
 - 🌐 Crawl any website with customizable patterns
