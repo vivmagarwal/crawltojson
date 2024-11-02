@@ -1,2 +1,7 @@
-export { crawlWebsite } from "./crawler.js";
-export { generateConfig } from "./config.js";
+const { crawlWebsite } = require("./crawler.js");
+const { generateConfig } = require("./config.js");
+
+module.exports = {
+  crawlWebsite,
+  generateConfig,
+};

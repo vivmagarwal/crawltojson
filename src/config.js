@@ -1,6 +1,6 @@
-import inquirer from "inquirer";
-import { writeFileSync } from "fs";
-import chalk from "chalk";
+const inquirer = require("inquirer");
+const { writeFileSync } = require("fs");
+const chalk = require("chalk");
 
 const defaultConfig = {
   url: "",
@@ -11,7 +11,7 @@ const defaultConfig = {
   excludePatterns: [],
 };
 
-export async function generateConfig() {
+async function generateConfig() {
   console.log(chalk.blue("Creating crawltojson configuration file..."));
 
   const answers = await inquirer.prompt([
@@ -51,3 +51,5 @@ export async function generateConfig() {
     process.exit(1);
   }
 }
+
+module.exports = { generateConfig };

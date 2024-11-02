@@ -1,45 +1,35 @@
-import * as esbuild from "esbuild";
-import { chmod, writeFile } from "fs/promises";
-
-const isWatch = process.argv.includes("--watch");
-
-/** @type {import('esbuild').BuildOptions} */
-const sharedOptions = {
-  bundle: true,
-  platform: "node",
-  external: ["playwright-core", "playwright", "chromium-bidi", "chalk", "inquirer", "commander", "ora"],
-};
-
-// CLI build config
-const cliBuildOptions = {
-  ...sharedOptions,
-  entryPoints: ["./src/cli.js"],
-  outfile: "./dist/cli.cjs",
-  format: "cjs",
-};
-
-// Library build config
-const libBuildOptions = {
-  ...sharedOptions,
-  entryPoints: ["./src/index.js"],
-  outfile: "./dist/index.js",
-  format: "esm",
-};
+// build.js
+const esbuild = require("esbuild");
+const fs = require("fs/promises");
 
 async function build() {
   try {
-    // Build the library
-    await esbuild.build(libBuildOptions);
+    // Common build options
+    const buildOptions = {
+      bundle: true,
+      platform: "node",
+      format: "cjs",
+      external: ["playwright", "chalk", "inquirer", "commander", "ora"],
+    };
 
     // Build the CLI
-    await esbuild.build(cliBuildOptions);
+    await esbuild.build({
+      ...buildOptions,
+      entryPoints: ["./src/cli.js"],
+      outfile: "./dist/cli.cjs",
+    });
 
-    // Add shebang to CLI file and set permissions
-    const shebang = "#!/usr/bin/env node\n";
-    const cliContent = await import("fs").then((fs) => fs.readFileSync("./dist/cli.cjs", "utf8"));
+    // Build the library
+    await esbuild.build({
+      ...buildOptions,
+      entryPoints: ["./src/index.js"],
+      outfile: "./dist/index.cjs",
+    });
 
-    await writeFile("./dist/cli.cjs", shebang + cliContent);
-    await chmod("./dist/cli.cjs", "755");
+    // Add shebang to CLI
+    const cliContent = await fs.readFile("./dist/cli.cjs", "utf8");
+    await fs.writeFile("./dist/cli.cjs", `#!/usr/bin/env node\n${cliContent}`);
+    await fs.chmod("./dist/cli.cjs", 0o755);
 
     console.log("Build complete");
   } catch (error) {
@@ -48,9 +38,4 @@ async function build() {
   }
 }
 
-if (isWatch) {
-  console.log("Watch mode not supported for this build configuration");
-  process.exit(1);
-} else {
-  build();
-}
+build();
