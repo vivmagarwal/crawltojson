@@ -1,8 +1,47 @@
+// src/crawler.js
 const { chromium } = require("playwright");
 const chalk = require("chalk");
-const { writeFileSync } = require("fs");
-const { spawn, execSync } = require("child_process");
-const path = require("path");
+const { createWriteStream } = require("fs");
+const { execSync } = require("child_process");
+const { Transform } = require("stream");
+
+class ResultsTransform extends Transform {
+  constructor(options = {}) {
+    options.objectMode = true;
+    super(options);
+    this.isFirst = true;
+    this.resultsCount = 0;
+  }
+
+  _transform(chunk, encoding, callback) {
+    try {
+      let data = "";
+
+      if (this.isFirst) {
+        data = "[\n";
+        this.isFirst = false;
+      } else {
+        data = ",\n";
+      }
+
+      data += JSON.stringify(chunk, null, 2);
+      this.resultsCount++;
+
+      callback(null, data);
+    } catch (error) {
+      callback(error);
+    }
+  }
+
+  _flush(callback) {
+    this.push("\n]");
+    callback();
+  }
+
+  getResultsCount() {
+    return this.resultsCount;
+  }
+}
 
 function installBrowser(callback) {
   console.log(chalk.blue("Installing Playwright browser..."));
@@ -18,197 +57,126 @@ function installBrowser(callback) {
   }
 }
 
-function crawlWebsite(config, callback) {
+async function crawlWebsite(config) {
   console.log(chalk.blue("\nStarting crawler...\n"));
 
-  const tempScript = `
-    const { chromium } = require('playwright');
-    
-    function delay(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
+  const visitedUrls = new Set();
+  let pagesVisited = 0;
+  const resultsTransform = new ResultsTransform();
+  const outputStream = createWriteStream(config.outputFile);
+  resultsTransform.pipe(outputStream);
+
+  async function normalizeUrl(url) {
+    try {
+      const urlObj = new URL(url);
+      urlObj.hash = "";
+      urlObj.search = "";
+      return urlObj.toString().replace(/\/+$/, "");
+    } catch (error) {
+      console.error("Error normalizing URL:", error);
+      return url;
     }
+  }
 
-    function getRandomDelay() {
-      return Math.floor(Math.random() * (1500 - 500 + 1) + 500);
-    }
-    
-    function crawl() {
-      const results = [];
-      let pagesVisited = 0;
-      const visitedUrls = new Set();
-      
-      function crawlPage(browser, context, page, url, callback) {
-        if (visitedUrls.has(url) || pagesVisited >= ${config.maxPages}) {
-          return callback();
-        }
-
-        process.send({ type: 'pageStart', url });
-
-        delay(getRandomDelay())
-          .then(() => page.goto(url))
-          .then(() => {
-            visitedUrls.add(url);
-            pagesVisited++;
-            
-            return page.$$eval('${config.selector}', 
-              (elements) => elements.map((el) => el.innerText)
-            );
-          })
-          .then((content) => {
-            results.push({
-              url,
-              content: content.join("\\n"),
-              timestamp: new Date().toISOString(),
-            });
-
-            process.send({ type: 'pageSaved', url });
-            
-            return page.$$eval(
-              "a[href]",
-              (elements, pattern) => 
-                elements
-                  .map((el) => el.href)
-                  .filter((href) => href.match(pattern)),
-              '${config.match.replace("**", ".*")}'
-            );
-          })
-          .then((links) => {
-            let processed = 0;
-            
-            function processNextLink() {
-              if (processed >= links.length || pagesVisited >= ${config.maxPages}) {
-                return callback();
-              }
-              
-              crawlPage(browser, context, page, links[processed], function() {
-                processed++;
-                processNextLink();
-              });
-            }
-            
-            processNextLink();
-          })
-          .catch((error) => {
-            process.send({ type: 'pageError', url, message: error.message });
-            callback();
-          });
-      }
-      
-      // Changed to run in headless mode
-      chromium.launch({ 
-        headless: true  // Run in headless mode
-      })
-        .then(function(browser) {
-          return browser.newContext()
-            .then(function(context) {
-              return context.newPage()
-                .then(function(page) {
-                  return { browser, context, page };
-                });
-            });
-        })
-        .then(function({ browser, context, page }) {
-          crawlPage(browser, context, page, '${config.url}', function() {
-            browser.close()
-              .then(() => {
-                process.send({ 
-                  type: 'complete', 
-                  results,
-                  pagesVisited 
-                });
-              });
-          });
-        })
-        .catch(function(error) {
-          if (error.message.includes("Executable doesn't exist")) {
-            process.send({ type: 'needsInstall' });
-          } else {
-            process.send({ type: 'error', message: error.message });
-          }
-        });
-    }
-    
-    crawl();
-  `;
-
-  const scriptPath = path.join(process.cwd(), ".temp-crawler-script.js");
-  writeFileSync(scriptPath, tempScript);
-
-  let retries = 0;
-  const maxRetries = 1;
-
-  function runCrawler(cb) {
-    const crawler = spawn("node", [scriptPath], {
-      stdio: ["inherit", "inherit", "inherit", "ipc"],
-    });
-
-    crawler.on("message", function (message) {
-      switch (message.type) {
-        case "needsInstall":
-          if (retries < maxRetries) {
-            retries++;
-            console.log(chalk.yellow("\nBrowser not found, attempting to install..."));
-            installBrowser(function (err, installed) {
-              if (installed) {
-                console.log(chalk.blue("\nRetrying crawler..."));
-                runCrawler(cb);
-              } else {
-                cb(new Error("Browser installation required"));
-              }
-            });
-          } else {
-            cb(new Error("Browser installation required"));
-          }
-          break;
-
-        case "pageStart":
-          console.log(chalk.blue(`→ Starting: ${message.url}`));
-          break;
-
-        case "pageSaved":
-          console.log(chalk.green(`✓ Saved: ${message.url}`));
-          break;
-
-        case "pageError":
-          console.log(chalk.red(`✗ Error: ${message.url} - ${message.message}`));
-          break;
-
-        case "complete":
-          writeFileSync(config.outputFile, JSON.stringify(message.results, null, 2));
-          console.log(chalk.green(`\n✓ Crawling complete! Processed ${message.pagesVisited} pages`));
-          console.log(chalk.blue(`✓ Results saved to ${config.outputFile}\n`));
-          cb();
-          break;
-
-        case "error":
-          cb(new Error(message.message));
-          break;
-      }
-    });
-
-    crawler.on("error", function (error) {
-      cb(error);
-    });
-
-    crawler.on("exit", function (code) {
-      if (code !== 0) {
-        cb(new Error(`Crawler process exited with code ${code}`));
-      }
+  function shouldExcludeUrl(url, patterns) {
+    return patterns.some((pattern) => {
+      const regex = new RegExp(pattern.replace(/\*\*/g, ".*").replace(/[.*+?^$()|[\]\\]/g, "\\$&"), "i");
+      return regex.test(url);
     });
   }
 
-  runCrawler(function (error) {
-    try {
-      require("fs").unlinkSync(scriptPath);
-    } catch (cleanupError) {
-      // Ignore cleanup errors
+  async function retryOperation(operation, maxRetries = config.maxRetries) {
+    let lastError;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxRetries) {
+          console.log(chalk.yellow(`Retry attempt ${attempt}/${maxRetries}`));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
+      }
     }
 
-    if (error) {
-      console.error(chalk.red("\nCrawling failed:", error.message, "\n"));
-      return process.exit(1);
+    throw lastError;
+  }
+
+  async function crawlPage(browser, context, page, url, currentLevel = 0) {
+    const normalizedUrl = await normalizeUrl(url);
+
+    if (visitedUrls.has(normalizedUrl) || pagesVisited >= config.maxPages || currentLevel >= config.maxLevels || shouldExcludeUrl(normalizedUrl, config.excludePatterns)) {
+      return;
     }
-  });
+
+    console.log(chalk.blue(`→ Starting: ${normalizedUrl} (Level: ${currentLevel})`));
+
+    try {
+      await retryOperation(async () => {
+        await page.goto(url, {
+          waitUntil: "networkidle",
+          timeout: config.timeout,
+        });
+      });
+
+      visitedUrls.add(normalizedUrl);
+      pagesVisited++;
+
+      const content = await page.$$eval(config.selector, (elements) => elements.map((el) => el.innerText));
+
+      resultsTransform.write({
+        url: normalizedUrl,
+        content: content.join("\n"),
+        timestamp: new Date().toISOString(),
+        level: currentLevel,
+      });
+
+      console.log(chalk.green(`✓ Saved: ${normalizedUrl}`));
+
+      if (currentLevel < config.maxLevels) {
+        const links = await page.$$eval("a[href]", (elements, pattern) => elements.map((el) => el.href).filter((href) => href.match(pattern)), config.match.replace("**", ".*"));
+
+        for (const link of links) {
+          if (pagesVisited >= config.maxPages) break;
+          await crawlPage(browser, context, page, link, currentLevel + 1);
+        }
+      }
+    } catch (error) {
+      console.log(chalk.red(`✗ Error: ${normalizedUrl} - ${error.message}`));
+    }
+  }
+
+  try {
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    await crawlPage(browser, context, page, config.url, 0);
+    await browser.close();
+
+    resultsTransform.end();
+
+    await new Promise((resolve) => {
+      outputStream.on("finish", () => {
+        console.log(chalk.green(`\n✓ Crawling complete! Processed ${pagesVisited} pages`));
+        console.log(chalk.blue(`✓ Results saved to ${config.outputFile}\n`));
+        resolve();
+      });
+    });
+  } catch (error) {
+    if (error.message.includes("Executable doesn't exist")) {
+      console.error(chalk.red("\nBrowser installation required"));
+      installBrowser((err, installed) => {
+        if (installed) {
+          console.log(chalk.blue("\nPlease try running the crawler again."));
+        }
+      });
+    } else {
+      console.error(chalk.red("\nCrawling failed:", error.message, "\n"));
+    }
+    process.exit(1);
+  }
 }
 
 module.exports = { crawlWebsite };

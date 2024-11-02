@@ -1,3 +1,4 @@
+// src/index.js
 const { crawlWebsite } = require("./crawler.js");
 const { generateConfig } = require("./config.js");
 

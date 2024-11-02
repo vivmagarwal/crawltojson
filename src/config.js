@@ -1,3 +1,4 @@
+// src/config.js
 const inquirer = require("inquirer");
 const { writeFileSync } = require("fs");
 const chalk = require("chalk");
@@ -7,8 +8,18 @@ const defaultConfig = {
   match: "",
   selector: "",
   maxPages: 50,
+  maxRetries: 3,
+  maxLevels: 3,
+  timeout: 7000,
   outputFile: "crawltojson.output.json",
-  excludePatterns: [],
+  excludePatterns: [
+    "**/tag/**", // Ignore tag pages
+    "**/tags/**", // Ignore tags pages
+    "**/#*", // Ignore anchor links
+    "**/search**", // Ignore search pages
+    "**.pdf", // Ignore PDF files
+    "**/archive/**", // Ignore archive pages
+  ],
 };
 
 async function generateConfig() {
@@ -25,7 +36,10 @@ async function generateConfig() {
       type: "input",
       name: "match",
       message: "What URL pattern should be matched? (e.g., https://example.com/**)",
-      default: (answers) => answers.url + "/**",
+      default: (answers) => {
+        const baseUrl = answers.url.replace(/\/+$/, "");
+        return `${baseUrl}/**`;
+      },
     },
     {
       type: "input",
@@ -38,6 +52,24 @@ async function generateConfig() {
       name: "maxPages",
       message: "Maximum number of pages to crawl?",
       default: 50,
+    },
+    {
+      type: "number",
+      name: "maxRetries",
+      message: "Maximum number of retries for failed requests?",
+      default: 3,
+    },
+    {
+      type: "number",
+      name: "maxLevels",
+      message: "Maximum depth level for crawling?",
+      default: 3,
+    },
+    {
+      type: "number",
+      name: "timeout",
+      message: "Page load timeout in milliseconds?",
+      default: 7000,
     },
   ]);
 
