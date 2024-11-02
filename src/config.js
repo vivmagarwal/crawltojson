@@ -1,4 +1,3 @@
-// src/config.js
 const inquirer = require("inquirer");
 const { writeFileSync } = require("fs");
 const chalk = require("chalk");
@@ -8,17 +7,27 @@ const defaultConfig = {
   match: "",
   selector: "",
   maxPages: 50,
+  outputFile: "crawltojson.output.json",
   maxRetries: 3,
   maxLevels: 3,
   timeout: 7000,
-  outputFile: "crawltojson.output.json",
   excludePatterns: [
     "**/tag/**", // Ignore tag pages
     "**/tags/**", // Ignore tags pages
     "**/#*", // Ignore anchor links
     "**/search**", // Ignore search pages
-    "**.pdf", // Ignore PDF files
+    "**.mp4", // Ignore mp4 files
     "**/archive/**", // Ignore archive pages
+  ],
+  ignoreSelectors: [
+    ".hs-cookie-notification-position-bottom", // Cookie notifications
+    ".cookie-banner", // Cookie banners
+    ".popup-overlay", // Popups
+    ".newsletter-signup", // Newsletter popups
+    ".chat-widget", // Chat widgets
+    ".advertisement", // Ads
+    "#hubspot-messages-iframe-container", // HubSpot chat
+    ".intercom-lightweight-app", // Intercom chat
   ],
 };
 
@@ -54,22 +63,19 @@ async function generateConfig() {
       default: 50,
     },
     {
-      type: "number",
-      name: "maxRetries",
-      message: "Maximum number of retries for failed requests?",
-      default: 3,
-    },
-    {
-      type: "number",
-      name: "maxLevels",
-      message: "Maximum depth level for crawling?",
-      default: 3,
-    },
-    {
-      type: "number",
-      name: "timeout",
-      message: "Page load timeout in milliseconds?",
-      default: 7000,
+      type: "input",
+      name: "ignoreSelectors",
+      message: "Additional selectors to ignore (comma-separated)",
+      default: "",
+      filter: (input) =>
+        input
+          ? defaultConfig.ignoreSelectors.concat(
+              input
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            )
+          : defaultConfig.ignoreSelectors,
     },
   ]);
 
