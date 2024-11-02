@@ -17,5 +17,5 @@ npm-debug.log*
 .vscode/
 
 # Config files that should be generated locally
-webtojson.config.json
-webtojson.output.json
+crawltojson.config.json
+crawltojson.output.json

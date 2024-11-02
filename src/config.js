@@ -7,12 +7,12 @@ const defaultConfig = {
   match: "",
   selector: "",
   maxPages: 50,
-  outputFile: "webtojson.output.json",
+  outputFile: "crawltojson.output.json",
   excludePatterns: [],
 };
 
 export async function generateConfig() {
-  console.log(chalk.blue("Creating webtojson configuration file..."));
+  console.log(chalk.blue("Creating crawltojson configuration file..."));
 
   const answers = await inquirer.prompt([
     {
@@ -44,7 +44,7 @@ export async function generateConfig() {
   const config = { ...defaultConfig, ...answers };
 
   try {
-    writeFileSync("./webtojson.config.json", JSON.stringify(config, null, 2));
+    writeFileSync("./crawltojson.config.json", JSON.stringify(config, null, 2));
     console.log(chalk.green("Configuration file created successfully!"));
   } catch (error) {
     console.error(chalk.red("Error creating configuration file:", error.message));

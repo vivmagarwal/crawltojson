@@ -7,7 +7,7 @@ import chalk from "chalk";
 
 const program = new Command();
 
-program.name("webtojson").description("Convert websites to JSON with ease").version("1.0.0");
+program.name("crawltojson").description("Crawl websites and convert them to JSON with ease").version("1.0.0");
 
 program.command("config").description("Generate a configuration file").action(generateConfig);
 
@@ -16,11 +16,11 @@ program
   .description("Crawl website based on config file")
   .action(async () => {
     try {
-      const configFile = readFileSync("./webtojson.config.json", "utf8");
+      const configFile = readFileSync("./crawltojson.config.json", "utf8");
       const config = JSON.parse(configFile);
       await crawlWebsite(config);
     } catch (error) {
-      console.error(chalk.red('Error: Could not read config file. Run "webtojson config" first.'));
+      console.error(chalk.red('Error: Could not read config file. Run "crawltojson config" first.'));
       process.exit(1);
     }
   });

@@ -1,4 +1,4 @@
-import playwright from "playwright";
+import { chromium } from "playwright";
 import ora from "ora";
 import chalk from "chalk";
 import { writeFileSync } from "fs";
@@ -9,7 +9,7 @@ export async function crawlWebsite(config) {
   let pagesVisited = 0;
 
   try {
-    const browser = await playwright.chromium.launch();
+    const browser = await chromium.launch();
     const context = await browser.newContext();
     const page = await context.newPage();
 

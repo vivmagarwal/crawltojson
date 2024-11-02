@@ -1,11 +1,11 @@
 {
-  "name": "web-to-json",
+  "name": "crawltojson",
   "version": "1.0.0",
-  "description": "Convert websites to JSON with ease",
+  "description": "Crawl websites and convert them to JSON with ease",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "webtojson": "./dist/cli.js"
+    "crawltojson": "./dist/cli.js"
   },
   "files": [
     "dist"
@@ -17,14 +17,17 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "commander": "^11.1.0",
-    "playwright": "^1.40.0",
     "chalk": "^5.3.0",
-    "ora": "^7.0.1",
-    "inquirer": "^9.2.12"
+    "commander": "^11.1.0",
+    "inquirer": "^9.2.12",
+    "ora": "^7.0.1"
+  },
+  "peerDependencies": {
+    "playwright": "^1.40.0"
   },
   "devDependencies": {
-    "esbuild": "^0.19.8"
+    "esbuild": "^0.19.8",
+    "playwright": "^1.40.0"
   },
   "engines": {
     "node": ">=14.16"
@@ -33,8 +36,12 @@
     "crawler",
     "web-scraping",
     "json",
-    "cli"
+    "cli",
+    "website-crawler"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.js"
+  }
 }
