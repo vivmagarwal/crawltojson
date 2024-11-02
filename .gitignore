@@ -19,3 +19,6 @@ npm-debug.log*
 # Config files that should be generated locally
 crawltojson.config.json
 crawltojson.output.json
+
+# Development
+repopack-output.txt
