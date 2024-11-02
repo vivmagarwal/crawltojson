@@ -1,11 +1,11 @@
 {
   "name": "crawltojson",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Crawl websites and convert them to JSON with ease",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "crawltojson": "./dist/cli.js"
+    "crawltojson": "./dist/cli.cjs"
   },
   "files": [
     "dist"
