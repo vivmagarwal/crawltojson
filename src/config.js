@@ -20,6 +20,9 @@ const defaultConfig = {
     "**/archive/**", // Ignore archive pages
   ],
   ignoreSelectors: [
+    "header",
+    "footer",
+    "#scrollspy",
     ".hs-cookie-notification-position-bottom", // Cookie notifications
     ".cookie-banner", // Cookie banners
     ".popup-overlay", // Popups
