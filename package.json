@@ -1,6 +1,6 @@
 {
   "name": "crawltojson",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Crawl websites and convert them to JSON with ease",
   "type": "commonjs",
   "main": "./dist/index.cjs",
